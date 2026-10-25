@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Secret Santa Navideño 🎄 - Amigo Secreto a la Distancia</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts: Mountains of Christmas & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Mountains+of+Christmas:wght@700&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            santa: {
+              red: '#D62828',
+              darkred: '#9E1C1C',
+              green: '#145A32',
+              lightgreen: '#27AE60',
+              gold: '#F4D03F',
+              cream: '#FDEDEC',
+              dark: '#1C2833'
+            }
+          },
+          fontFamily: {
+            festive: ['"Mountains of Christmas"', 'cursive'],
+            body: ['Outfit', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+      color: #fff;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Canvas de Nieve de Fondo */
+    #snowCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .festive-title {
+      font-family: 'Mountains of Christmas', cursive;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6), 0 0 15px rgba(244, 208, 63, 0.5);
+    }
+
+    /* Efectos de Raspadita */
+    .scratch-container {
+      position: relative;
+      width: 100%;
+      max-width: 320px;
+      height: 180px;
+      margin: 0 auto;
+      user-select: none;
+    }
+
+    .scratch-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+      border-radius: 1rem;
+      z-index: 2;
+      touch-action: none;
+    }
+
+    .scratch-reveal {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+    }
+
+    /* Animación de pulso para regalos */
+    @keyframes pulse-gift {
+      0%, 100% { transform: scale(1) rotate(0deg); }
+      50% { transform: scale(1.05) rotate(2deg); }
+    }
+    .animate-gift {
+      animation: pulse-gift 2.5s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="p-3 md:p-6 relative">
+
+  <!-- Canvas para Nieve Navideña -->
+  <canvas id="snowCanvas"></canvas>
+
+  <div class="max-w-4xl mx-auto relative z-20">
+    
+    <!-- Header Principal -->
+    <header class="text-center my-6 md:my-8 relative">
+      <div class="inline-block relative">
+        <i class="fa-solid => fa-hat-santa text-santa-red text-4xl md:text-6xl absolute -top-6 -left-6 transform -rotate-12 drop-shadow"></i>
+        <h1 class="festive-title text-4xl md:text-6xl font-bold text-santa-gold mb-2 tracking-wide">
+          Amigo Secreto Navideño 🎄
+        </h1>
+      </div>
+      <p class="text-gray-200 text-sm md:text-base max-w-lg mx-auto">
+        Organiza, sortea y descubre a tu amigo secreto a la distancia de forma fácil, divertida y secreta.
+      </p>
+    </header>
+
+    <!-- Pestañas de Navegación -->
+    <div class="flex flex-wrap justify-center gap-2 mb-8">
+      <button id="tab-admin" onclick="switchTab('admin')" class="px-5 py-2.5 rounded-full font-semibold transition-all duration-300 flex items-center gap-2 bg-santa-red text-white shadow-lg hover:bg-santa-darkred">
+        <i class="fa-solid fa-users-gear"></i> 1. Configuración y Lista
+      </button>
+      <button id="tab-reveal" onclick="switchTab('reveal')" class="px-5 py-2.5 rounded-full font-semibold transition-all duration-300 flex items-center gap-2 bg-gray-700/80 hover:bg-santa-green text-white">
+        <i class="fa-solid fa-gift"></i> 2. Descubrir mi Amigo
+      </button>
+    </div>
+
+    <!-- SECCIÓN 1: ADMINISTRACIÓN Y SORTEO -->
+    <div id="section-admin" class="space-y-6">
+      
+      <!-- Detalle del Evento -->
+      <div class="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-5 md:p-6 shadow-xl">
+        <h2 class="text-xl md:text-2xl font-bold text-santa-gold mb-4 flex items-center gap-2 border-b border-white/10 pb-2">
+          <i class="fa-solid fa-calendar-check"></i> Detalles de la Entrega de Regalos
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Fecha de Intercambio</label>
+            <input type="date" id="eventDate" onchange="saveEventData()" class="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-santa-gold">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Presupuesto Máximo</label>
+            <input type="text" id="eventBudget" placeholder="Ej: $20 USD / $50.000 COP" onchange="saveEventData()" class="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-santa-gold">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Lugar o Indicaciones</label>
+            <input type="text" id="eventNotes" placeholder="Ej: Reunión por Zoom / Enviar por correo" onchange="saveEventData()" class="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-santa-gold">
+          </div>
+        </div>
+      </div>
+
+      <!-- Agregar Participantes -->
+      <div class="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-5 md:p-6 shadow-xl">
+        <h2 class="text-xl md:text-2xl font-bold text-santa-gold mb-4 flex items-center gap-2 border-b border-white/10 pb-2">
+          <i class="fa-solid fa-user-plus"></i> Agregar Participante
+        </h2>
+        
+        <form id="addParticipantForm" onsubmit="handleAddParticipant(event)" class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-gray-300 mb-1">Nombre completo *</label>
+              <input type="text" id="pName" required placeholder="Ej: María Pérez" class="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2.5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-santa-gold">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-300 mb-1">Teléfono o WhatsApp (Opcional)</label>
+              <input type="tel" id="pPhone" placeholder="Ej: +57 300 123 4567" class="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2.5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-santa-gold">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Lista de deseos / Gustos o Talla (Opcional)</label>
+            <textarea id="pWishlist" rows="2" placeholder="Ej: Me gustan los libros de fantasía, chocolates oscuros o tazas bonitas." class="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-santa-gold"></textarea>
+          </div>
+          <button type="submit" class="w-full md:w-auto px-6 py-2.5 bg-santa-green hover:bg-santa-lightgreen font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
+            <i class="fa-solid fa-plus"></i> Añadir Participante
+          </button>
+        </form>
+      </div>
+
+      <!-- Lista de Participantes -->
+      <div class="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-5 md:p-6 shadow-xl">
+        <div class="flex flex-wrap justify-between items-center mb-4 border-b border-white/10 pb-2 gap-2">
+          <h2 class="text-xl md:text-2xl font-bold text-santa-gold flex items-center gap-2">
+            <i class="fa-solid fa-list-check"></i> Participantes (<span id="participantCount">0</span>)
+          </h2>
+          <button onclick="clearAllData()" class="text-xs text-red-300 hover:text-red-100 underline">
+            Reiniciar todo
+          </button>
+        </div>
+
+        <div id="participantList" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1">
+          <!-- Renderizado dinámico -->
+        </div>
+
+        <!-- Acciones del Sorteo -->
+        <div class="mt-6 pt-4 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div class="text-xs text-gray-300">
+            <i class="fa-solid fa-circle-info text-santa-gold mr-1"></i>
+            Se necesitan al menos 3 participantes para realizar el sorteo.
+          </div>
+          
+          <button id="btnDraw" onclick="performDraw()" class="w-full md:w-auto px-8 py-3 bg-santa-gold text-santa-dark font-extrabold text-lg rounded-xl shadow-lg hover:bg-yellow-300 transform active:scale-95 transition-all flex items-center justify-center gap-2">
+            <i class="fa-solid fa-shuffle"></i> ¡Realizar Sorteo Aleatorio!
+          </button>
+        </div>
+      </div>
+
+      <!-- Panel de Códigos / Envío por WhatsApp -->
+      <div id="drawResultsPanel" class="hidden bg-white/10 backdrop-blur-md border border-santa-gold/40 rounded-2xl p-5 md:p-6 shadow-xl">
+        <h2 class="text-xl md:text-2xl font-bold text-santa-gold mb-2 flex items-center gap-2">
+          <i class="fa-solid fa-paper-plane"></i> ¡Sorteo Realizado con Éxito! 🎉
+        </h2>
+        <p class="text-sm text-gray-200 mb-4">
+          A continuación tienes los accesos y PINs secretos de cada participante. Puedes enviarles su clave personal por WhatsApp para que la ingresen en la pestaña **"Descubrir mi Amigo"**.
+        </p>
+
+        <div id="shareList" class="space-y-3 max-h-96 overflow-y-auto pr-1">
+          <!-- Lista con botones de WhatsApp / Copiar PIN -->
+        </div>
+      </div>
+
+    </div>
+
+    <!-- SECCIÓN 2: REVELAR AMIGO SECRETO -->
+    <div id="section-reveal" class="hidden space-y-6">
+      
+      <div class="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 shadow-xl text-center max-w-lg mx-auto">
+        <h2 class="text-2xl font-bold text-santa-gold mb-2 flex items-center justify-center gap-2">
+          <i class="fa-solid fa-mask"></i> Descubre a quién le regalas
+        </h2>
+        <p class="text-sm text-gray-300 mb-6">
+          Selecciona tu nombre e ingresa tu PIN secreto de 4 dígitos para ver a tu Amigo Secreto.
+        </p>
+
+        <!-- Formulario de Identificación -->
+        <div id="revealAuthForm" class="space-y-4">
+          <div>
+            <label class="block text-left text-xs font-semibold text-gray-300 mb-1">¿Quién eres?</label>
+            <select id="revealUserSelect" class="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-santa-gold">
+              <option value="" class="text-gray-800">-- Selecciona tu nombre --</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-left text-xs font-semibold text-gray-300 mb-1">Tu PIN Secreto (4 dígitos)</label>
+            <input type="password" id="revealPinInput" maxlength="4" placeholder="****" class="w-full text-center text-2xl tracking-widest bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-santa-gold">
+          </div>
+
+          <button onclick="unlockSecret()" class="w-full py-3 bg-santa-red hover:bg-santa-darkred font-bold text-lg rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
+            <i class="fa-solid fa-key"></i> Validar PIN
+          </button>
+        </div>
+
+        <!-- Área de Revelado (Tarjeta Raspadita) -->
+        <div id="revealContent" class="hidden mt-6 space-y-4">
+          <p class="text-xs text-santa-gold font-semibold uppercase tracking-wider">
+            ✨ ¡Mueve el mouse o arrastra el dedo sobre la tarjeta para raspar! ✨
+          </p>
+
+          <!-- Raspadita Canvas -->
+          <div class="scratch-container">
+            <div class="scratch-reveal bg-gradient-to-br from-red-900 to-green-950 border-2 border-santa-gold p-4 text-center shadow-inner">
+              <p class="text-xs text-gray-300 mb-1">Le regalas a:</p>
+              <h3 id="targetName" class="text-2xl font-bold text-santa-gold mb-2">---</h3>
+              <div id="targetWishlist" class="text-xs text-gray-200 bg-black/30 p-2 rounded max-h-20 overflow-y-auto italic">
+                Sin lista de deseos especificada.
+              </div>
+            </div>
+            <canvas id="scratchCanvas" class="scratch-canvas"></canvas>
+          </div>
+
+          <!-- Detalles del Evento Resumidos -->
+          <div class="bg-black/30 border border-white/10 rounded-xl p-3 text-left text-xs space-y-1">
+            <p><span class="font-bold text-santa-gold">Fecha límite:</span> <span id="dispDate">No fijada</span></p>
+            <p><span class="font-bold text-santa-gold">Presupuesto tope:</span> <span id="dispBudget">No especificado</span></p>
+            <p><span class="font-bold text-santa-gold">Indicaciones:</span> <span id="dispNotes">Ninguna</span></p>
+          </div>
+
+          <button onclick="resetRevealView()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-xs font-semibold rounded-lg text-gray-200 transition-all">
+            <i class="fa-solid fa-lock"></i> Ocultar y Salir
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Notificaciones Toast -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-santa-dark text-white px-5 py-3 rounded-xl border border-santa-gold shadow-2xl flex items-center gap-3">
+    <i id="toastIcon" class="fa-solid fa-circle-check text-santa-gold text-xl"></i>
+    <span id="toastMessage" class="text-sm">Notificación</span>
+  </div>
+
+  <script>
+    // --- ESTADO DE LA APLICACIÓN ---
+    let appState = {
+      participants: [], // { id, name, phone, wishlist, pin, assignedToId }
+      event: {
+        date: '',
+        budget: '',
+        notes: ''
+      },
+      isDrawn: false
+    };
+
+    // --- AL CARGAR LA PÁGINA ---
+    window.onload = function() {
+      initSnow();
+      loadLocalStorage();
+      renderAdminView();
+      renderRevealDropdown();
+    };
+
+    // --- MANEJO DE ALMACENAMIENTO LOCAL ---
+    function saveLocalStorage() {
+      localStorage.setItem('santaAppState', JSON.stringify(appState));
+    }
+
+    function loadLocalStorage() {
+      const saved = localStorage.getItem('santaAppState');
+      if (saved) {
+        try {
+          appState = JSON.parse(saved);
+          document.getElementById('eventDate').value = appState.event.date || '';
+          document.getElementById('eventBudget').value = appState.event.budget || '';
+          document.getElementById('eventNotes').value = appState.event.notes || '';
+        } catch(e) {
+          console.error("Error al cargar datos", e);
+        }
+      }
+    }
+
+    function saveEventData() {
+      appState.event.date = document.getElementById('eventDate').value;
+      appState.event.budget = document.getElementById('eventBudget').value;
+      appState.event.notes = document.getElementById('eventNotes').value;
+      saveLocalStorage();
+    }
+
+    function clearAllData() {
+      if (confirm("¿Estás seguro de que deseas borrar todos los datos del evento?")) {
+        localStorage.removeItem('santaAppState');
+        appState = { participants: [], event: { date: '', budget: '', notes: '' }, isDrawn: false };
+        document.getElementById('eventDate').value = '';
+        document.getElementById('eventBudget').value = '';
+        document.getElementById('eventNotes').value = '';
+        renderAdminView();
+        renderRevealDropdown();
+        showToast("Datos reiniciados correctamente.");
+      }
+    }
+
+    // --- NAVEGACIÓN POR PESTAÑAS ---
+    function switchTab(tabName) {
+      const secAdmin = document.getElementById('section-admin');
+      const secReveal = document.getElementById('section-reveal');
+      const btnAdmin = document.getElementById('tab-admin');
+      const btnReveal = document.getElementById('tab-reveal');
+
+      if (tabName === 'admin') {
+        secAdmin.classList.remove('hidden');
+        secReveal.classList.add('hidden');
+        btnAdmin.className = "px-5 py-2.5 rounded-full font-semibold transition-all duration-300 flex items-center gap-2 bg-santa-red text-white shadow-lg hover:bg-santa-darkred";
+        btnReveal.className = "px-5 py-2.5 rounded-full font-semibold transition-all duration-300 flex items-center gap-2 bg-gray-700/80 hover:bg-santa-green text-white";
+      } else {
+        secAdmin.classList.add('hidden');
+        secReveal.classList.remove('hidden');
+        btnReveal.className = "px-5 py-2.5 rounded-full font-semibold transition-all duration-300 flex items-center gap-2 bg-santa-green text-white shadow-lg hover:bg-santa-lightgreen";
+        btnAdmin.className = "px-5 py-2.5 rounded-full font-semibold transition-all duration-300 flex items-center gap-2 bg-gray-700/80 hover:bg-santa-red text-white";
+      }
+    }
+
+    // --- GESTIÓN DE PARTICIPANTES ---
+    function handleAddParticipant(e) {
+      e.preventDefault();
+      const nameInput = document.getElementById('pName');
+      const phoneInput = document.getElementById('pPhone');
+      const wishlistInput = document.getElementById('pWishlist');
+
+      const name = nameInput.value.trim();
+      if (!name) return;
+
+      // Generar PIN aleatorio de 4 dígitos
+      const pin = Math.floor(1000 + Math.random() * 9000).toString();
+
+      const newParticipant = {
+        id: 'p_' + Date.now() + '_' + Math.floor(Math.random()*100),
+        name: name,
+        phone: phoneInput.value.trim(),
+        wishlist: wishlistInput.value.trim(),
+        pin: pin,
+        assignedToId: null
+      };
+
+      appState.participants.push(newParticipant);
+      appState.isDrawn = false; // Se requiere nuevo sorteo si cambia la lista
+      saveLocalStorage();
+
+      nameInput.value = '';
+      phoneInput.value = '';
+      wishlistInput.value = '';
+
+      renderAdminView();
+      renderRevealDropdown();
+      showToast(`Participante ${name} añadido.`);
+    }
+
+    function removeParticipant(id) {
+      appState.participants = appState.participants.filter(p => p.id !== id);
+      appState.isDrawn = false;
+      saveLocalStorage();
+      renderAdminView();
+      renderRevealDropdown();
+      showToast("Participante eliminado.");
+    }
+
+    function renderAdminView() {
+      const listContainer = document.getElementById('participantList');
+      const countEl = document.getElementById('participantCount');
+      const resultsPanel = document.getElementById('drawResultsPanel');
+      const shareList = document.getElementById('shareList');
+
+      countEl.innerText = appState.participants.length;
+      listContainer.innerHTML = '';
+
+      if (appState.participants.length === 0) {
+        listContainer.innerHTML = `
+          <div class="col-span-full text-center py-8 text-gray-400 border border-dashed border-white/20 rounded-xl">
+            <i class="fa-solid fa-user-group text-3xl mb-2 text-santa-gold/50"></i>
+            <p>Aún no hay participantes agregados.</p>
+          </div>
+        `;
+      } else {
+        appState.participants.forEach(p => {
+          const item = document.createElement('div');
+          item.className = "bg-black/30 border border-white/10 rounded-xl p-3 flex justify-between items-center gap-2";
+          item.innerHTML = `
+            <div class="overflow-hidden">
+              <p class="font-bold text-white truncate">${escapeHtml(p.name)}</p>
+              ${p.phone ? `<p class="text-xs text-gray-300"><i class="fa-brands fa-whatsapp text-green-400"></i> ${escapeHtml(p.phone)}</p>` : ''}
+              ${p.wishlist ? `<p class="text-xs text-santa-gold/80 truncate">🎁 ${escapeHtml(p.wishlist)}</p>` : ''}
+            </div>
+            <button onclick="removeParticipant('${p.id}')" class="text-red-400 hover:text-red-200 p-2 text-sm transition-colors">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          `;
+          listContainer.appendChild(item);
+        });
+      }
+
+      // Renderizar el panel de resultados si el sorteo está listo
+      if (appState.isDrawn) {
+        resultsPanel.classList.remove('hidden');
+        shareList.innerHTML = '';
+
+        appState.participants.forEach(p => {
+          const shareItem = document.createElement('div');
+          shareItem.className = "bg-black/40 border border-white/10 rounded-xl p-3 flex flex-col md:flex-row justify-between items-start md:items-center gap-3";
+
+          const msg = encodeURIComponent(`¡Hola ${p.name}! 🎄 Te invitamos a descubrir tu Amigo Secreto. Entra a la app e ingresa con tu PIN secreto: *${p.pin}*. ¡Que no se lo digas a nadie! 🎁`);
+          const waUrl = p.phone ? `https://wa.me/${p.phone.replace(/[^0-9]/g, '')}?text=${msg}` : `https://wa.me/?text=${msg}`;
+
+          shareItem.innerHTML = `
+            <div>
+              <span class="font-bold text-white">${escapeHtml(p.name)}</span>
+              <span class="ml-2 text-xs bg-santa-gold/20 text-santa-gold px-2 py-0.5 rounded-full border border-santa-gold/30">
+                PIN: <strong>${p.pin}</strong>
+              </span>
+            </div>
+            <div class="flex items-center gap-2 w-full md:w-auto">
+              <button onclick="copyToClipboard('Tu PIN de Amigo Secreto es: ${p.pin}')" class="flex-1 md:flex-initial px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-xs rounded-lg text-white transition-colors flex items-center justify-center gap-1">
+                <i class="fa-regular fa-copy"></i> Copiar PIN
+              </button>
+              <a href="${waUrl}" target="_blank" class="flex-1 md:flex-initial px-3 py-1.5 bg-green-600 hover:bg-green-500 text-xs rounded-lg text-white font-semibold transition-colors flex items-center justify-center gap-1">
+                <i class="fa-brands fa-whatsapp"></i> Enviar
+              </a>
+            </div>
+          `;
+          shareList.appendChild(shareItem);
+        });
+      } else {
+        resultsPanel.classList.add('hidden');
+      }
+    }
+
+    // --- ALGORITMO DE SORTEO ALEATORIO (Desarreglo Derangement) ---
+    function performDraw() {
+      const list = appState.participants;
+      if (list.length < 3) {
+        showToast("Debes añadir al menos 3 participantes.", true);
+        return;
+      }
+
+      let receiverList = [...list];
+      let isValid = false;
+      let attempts = 0;
+
+      // Intentar una permutación válida donde nadie sea auto-asignado
+      while (!isValid && attempts < 500) {
+        attempts++;
+        receiverList = shuffleArray([...list]);
+        isValid = true;
+
+        for (let i = 0; i < list.length; i++) {
+          if (list[i].id === receiverList[i].id) {
+            isValid = false;
+            break;
+          }
+        }
+      }
+
+      if (!isValid) {
+        showToast("Error al realizar el sorteo. Inténtalo de nuevo.", true);
+        return;
+      }
+
+      // Guardar la asignación
+      for (let i = 0; i < list.length; i++) {
+        list[i].assignedToId = receiverList[i].id;
+      }
+
+      appState.isDrawn = true;
+      saveLocalStorage();
+      renderAdminView();
+      
+      // Efecto Confeti
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+
+      showToast("¡Sorteo realizado con éxito! 🎁");
+    }
+
+    function shuffleArray(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    // --- REVELADO DE AMIGO SECRETO ---
+    function renderRevealDropdown() {
+      const select = document.getElementById('revealUserSelect');
+      select.innerHTML = '<option value="" class="text-gray-800">-- Selecciona tu nombre --</option>';
+
+      appState.participants.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name;
+        opt.className = 'text-gray-800';
+        select.appendChild(opt);
+      });
+    }
+
+    function unlockSecret() {
+      const userId = document.getElementById('revealUserSelect').value;
+      const pinInput = document.getElementById('revealPinInput').value.trim();
+
+      if (!appState.isDrawn) {
+        showToast("El sorteo aún no se ha realizado.", true);
+        return;
+      }
+
+      if (!userId) {
+        showToast("Por favor selecciona tu nombre.", true);
+        return;
+      }
+
+      const user = appState.participants.find(p => p.id === userId);
+      if (!user || user.pin !== pinInput) {
+        showToast("PIN incorrecto. Revisa e intenta de nuevo.", true);
+        return;
+      }
+
+      const targetUser = appState.participants.find(p => p.id === user.assignedToId);
+      if (!targetUser) {
+        showToast("Error al encontrar a tu amigo secreto.", true);
+        return;
+      }
+
+      // Mostrar interfaz de revelado
+      document.getElementById('revealAuthForm').classList.add('hidden');
+      document.getElementById('revealContent').classList.remove('hidden');
+
+      document.getElementById('targetName').innerText = targetUser.name;
+      document.getElementById('targetWishlist').innerText = targetUser.wishlist ? `💬 Sugerencias: ${targetUser.wishlist}` : "Sin lista de deseos especificada.";
+
+      document.getElementById('dispDate').innerText = appState.event.date || "No fijada";
+      document.getElementById('dispBudget').innerText = appState.event.budget || "No especificado";
+      document.getElementById('dispNotes').innerText = appState.event.notes || "Sin notas adicionales";
+
+      initScratchCanvas();
+    }
+
+    function resetRevealView() {
+      document.getElementById('revealAuthForm').classList.remove('hidden');
+      document.getElementById('revealContent').classList.add('hidden');
+      document.getElementById('revealPinInput').value = '';
+    }
+
+    // --- TARJETA DE RASPADITA ---
+    function initScratchCanvas() {
+      const canvas = document.getElementById('scratchCanvas');
+      const ctx = canvas.getContext('2d');
+      const container = canvas.parentElement;
+
+      canvas.width = container.offsetWidth;
+      canvas.height = container.offsetHeight;
+
+      // Dibujar capa dorada/roja de raspadita
+      ctx.fillStyle = '#C0392B';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Patrón decorativo
+      ctx.fillStyle = '#D4AC0D';
+      ctx.font = 'bold 18px Outfit';
+      ctx.textAlign = 'center';
+      ctx.fillText('🎁 RASPA AQUÍ 🎁', canvas.width / 2, canvas.height / 2 + 6);
+
+      let isDrawing = false;
+
+      function scratch(e) {
+        if (!isDrawing) return;
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
+
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.beginPath();
+        ctx.arc(x, y, 25, 0, Math.PI * 2, false);
+        ctx.fill();
+      }
+
+      canvas.addEventListener('mousedown', (e) => { isDrawing = true; scratch(e); });
+      canvas.addEventListener('mousemove', scratch);
+      canvas.addEventListener('mouseup', () => { isDrawing = false; });
+      canvas.addEventListener('mouseleave', () => { isDrawing = false; });
+
+      canvas.addEventListener('touchstart', (e) => { isDrawing = true; scratch(e); }, { passive: true });
+      canvas.addEventListener('touchmove', scratch, { passive: true });
+      canvas.addEventListener('touchend', () => { isDrawing = false; });
+    }
+
+    // --- UTILIDADES ---
+    function copyToClipboard(text) {
+      const dummy = document.createElement("textarea");
+      document.body.appendChild(dummy);
+      dummy.value = text;
+      dummy.select();
+      document.execCommand("copy");
+      document.body.removeChild(dummy);
+      showToast("¡Copiado al portapapeles!");
+    }
+
+    function showToast(msg, isError = false) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMessage');
+      const toastIcon = document.getElementById('toastIcon');
+
+      toastMsg.innerText = msg;
+      if (isError) {
+        toastIcon.className = "fa-solid fa-circle-exclamation text-red-400 text-xl";
+      } else {
+        toastIcon.className = "fa-solid fa-circle-check text-santa-gold text-xl";
+      }
+
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 3000);
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    // --- ANIMACIÓN DE NIEVE ---
+    function initSnow() {
+      const canvas = document.getElementById('snowCanvas');
+      const ctx = canvas.getContext('2d');
+
+      let width = canvas.width = window.innerWidth;
+      let height = canvas.height = window.innerHeight;
+
+      window.addEventListener('resize', () => {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+      });
+
+      const flakes = [];
+      const flakeCount = Math.min(width / 10, 80);
+
+      for (let i = 0; i < flakeCount; i++) {
+        flakes.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          r: Math.random() * 3 + 1,
+          d: Math.random() * flakeCount,
+          opacity: Math.random() * 0.7 + 0.3
+        });
+      }
+
+      function drawSnow() {
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+        ctx.beginPath();
+
+        for (let i = 0; i < flakeCount; i++) {
+          const f = flakes[i];
+          ctx.moveTo(f.x, f.y);
+          ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2, true);
+        }
+        ctx.fill();
+        moveSnow();
+      }
+
+      let angle = 0;
+      function moveSnow() {
+        angle += 0.01;
+        for (let i = 0; i < flakeCount; i++) {
+          const f = flakes[i];
+          f.y += Math.cos(angle + f.d) + 1 + f.r / 2;
+          f.x += Math.sin(angle) * 2;
+
+          if (f.x > width + 5 || f.x < -5 || f.y > height) {
+            if (i % 3 > 0) {
+              flakes[i] = { x: Math.random() * width, y: -10, r: f.r, d: f.d, opacity: f.opacity };
+            } else {
+              if (Math.sin(angle) > 0) {
+                flakes[i] = { x: -5, y: Math.random() * height, r: f.r, d: f.d, opacity: f.opacity };
+              } else {
+                flakes[i] = { x: width + 5, y: Math.random() * height, r: f.r, d: f.d, opacity: f.opacity };
+              }
+            }
+          }
+        }
+      }
+
+      setInterval(drawSnow, 33);
+    }
+  </script>
+</body>
+</html>
